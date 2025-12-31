@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ProcessBaseInfo, InspectionItem } from '../../apis/processTypes';
+import { ProcessBaseInfo, InspectionItem, ProcessStage } from '../../apis/processTypes';
 import { processApis } from '../../apis/processApis';
 
 interface ProcessDetailProps {
@@ -10,6 +10,7 @@ interface ProcessDetailProps {
 const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
   const [data, setData] = useState<ProcessBaseInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [stages, setStages] = useState<ProcessStage[]>([]);
   
   // Inline Add State
   const [newItemOriginal, setNewItemOriginal] = useState('');
@@ -27,13 +28,24 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
   const fetchDetail = async () => {
     if (!id) return;
     setLoading(true);
-    const res = await processApis.getProcessDetail(id);
-    if (res.success) {
-      setData(res.data);
+    try {
+      // Pass the process id to fetch specific stages for this process
+      const [detailRes, stagesRes] = await Promise.all([
+        processApis.getProcessDetail(id),
+        processApis.getProcessStages(id)
+      ]);
+      
+      if (detailRes.success) {
+        setData(detailRes.data);
+      }
+      if (stagesRes.success) {
+        setStages(stagesRes.data);
+      }
+    } finally {
+      setLoading(false);
+      setIsAdding(false);
+      resetForm();
     }
-    setLoading(false);
-    setIsAdding(false);
-    resetForm();
   };
 
   useEffect(() => {
@@ -42,7 +54,6 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
 
   // Remote Search Logic
   useEffect(() => {
-    // Only search if there's text and dropdown is supposed to be open
     if (!newItemOriginal.trim() || !showSuggestions) {
       if (!newItemOriginal.trim()) setSuggestions([]);
       return;
@@ -82,6 +93,15 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
     const res = await processApis.updateCheckStatus(data.id, newStatus);
     if (res.success) {
       setData({ ...data, isCheckActive: newStatus });
+    }
+  };
+
+  const handleStageChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!data) return;
+    const newStageId = e.target.value;
+    const res = await processApis.updateTriggerStage(data.id, newStageId);
+    if (res.success) {
+      setData({ ...data, triggerStageId: newStageId });
     }
   };
 
@@ -126,7 +146,6 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
 
   const handleSelectSuggestion = (s: string) => {
     setNewItemOriginal(s);
-    // If display name is empty, auto-fill it with the selected original name
     if (!newItemDisplay.trim()) {
       setNewItemDisplay(s);
     }
@@ -167,14 +186,13 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 p-8">
-      {/* pb-64 provides space for the dropdown at the bottom of the table */}
       <div className="max-w-4xl mx-auto space-y-6 pb-64">
         {/* Basic Info Section */}
         <section className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center rounded-t-xl">
             <h2 className="font-semibold text-gray-800">工艺基本信息</h2>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500">复核激活状态</span>
+              <span className="text-sm text-gray-500 font-medium">复核激活状态</span>
               <button
                 onClick={handleToggleActive}
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
@@ -185,14 +203,29 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
               </button>
             </div>
           </div>
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div>
               <label className="block text-xs font-medium text-gray-400 uppercase mb-1">工艺代码</label>
-              <p className="text-gray-900 font-mono text-sm">{data.code}</p>
+              <p className="text-gray-900 font-mono text-sm bg-gray-50 px-2 py-1 rounded inline-block">{data.code}</p>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-400 uppercase mb-1">工艺名称</label>
               <p className="text-gray-900 font-semibold">{data.name}</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-400 uppercase mb-1">触发复核工序</label>
+              <select
+                value={data.triggerStageId || ''}
+                onChange={handleStageChange}
+                className="w-full mt-0.5 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all shadow-sm"
+              >
+                <option value="" disabled>请选择该工艺下的触发工序</option>
+                {stages.map(stage => (
+                  <option key={stage.id} value={stage.id}>
+                    {stage.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </section>
@@ -212,7 +245,6 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
             </button>
           </div>
           
-          {/* Table Container - overflow-visible is key to show the absolute dropdown */}
           <div className="overflow-visible">
             <table className="min-w-full divide-y divide-gray-200 table-fixed">
               <thead>
@@ -251,7 +283,7 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
                       <input
                         ref={originalInputRef}
                         type="text"
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white pr-8 text-gray-900"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white pr-8 text-gray-900 placeholder-gray-400"
                         placeholder="输入关键字搜索..."
                         value={newItemOriginal}
                         onChange={(e) => {
@@ -266,7 +298,6 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
                         </div>
                       )}
 
-                      {/* Dropdown Menu - Fixed positioning & clear colors */}
                       {showSuggestions && (
                         <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl z-[9999] max-h-60 overflow-y-auto ring-1 ring-black ring-opacity-10 border-t-0">
                           {!newItemOriginal.trim() ? (
@@ -306,7 +337,7 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
                   <td className="px-6 py-4 overflow-visible">
                     <input
                       type="text"
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white text-gray-900"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white text-gray-900 placeholder-gray-400"
                       placeholder="设置显示别名..."
                       value={newItemDisplay}
                       onChange={(e) => setNewItemDisplay(e.target.value)}

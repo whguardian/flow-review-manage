@@ -5,6 +5,11 @@ export interface InspectionItem {
   displayName: string;
 }
 
+export interface ProcessStage {
+  id: string;
+  name: string;
+}
+
 export interface ProcessBaseInfo {
   id: string;
   code: string;
@@ -12,6 +17,7 @@ export interface ProcessBaseInfo {
   version: string;
   description: string;
   isCheckActive: boolean;
+  triggerStageId?: string;
   inspectionItems: InspectionItem[];
 }
 
