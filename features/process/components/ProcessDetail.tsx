@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ProcessBaseInfo, InspectionItem, ProcessStage } from '../../apis/processTypes';
-import { processApis } from '../../apis/processApis';
+import { ProcessBaseInfo, InspectionItem, ProcessStage } from '../api/processTypes';
+import { processApis } from '../api/processApis';
 
 interface ProcessDetailProps {
   id: string | null;
@@ -12,7 +12,6 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
   const [loading, setLoading] = useState(false);
   const [stages, setStages] = useState<ProcessStage[]>([]);
   
-  // Inline Add State
   const [newItemOriginal, setNewItemOriginal] = useState('');
   const [newItemDisplay, setNewItemDisplay] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -29,18 +28,13 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
     if (!id) return;
     setLoading(true);
     try {
-      // Pass the process id to fetch specific stages for this process
       const [detailRes, stagesRes] = await Promise.all([
         processApis.getProcessDetail(id),
         processApis.getProcessStages(id)
       ]);
       
-      if (detailRes.success) {
-        setData(detailRes.data);
-      }
-      if (stagesRes.success) {
-        setStages(stagesRes.data);
-      }
+      if (detailRes.success) setData(detailRes.data);
+      if (stagesRes.success) setStages(stagesRes.data);
     } finally {
       setLoading(false);
       setIsAdding(false);
@@ -52,32 +46,22 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
     fetchDetail();
   }, [id]);
 
-  // Remote Search Logic
   useEffect(() => {
     if (!newItemOriginal.trim() || !showSuggestions) {
       if (!newItemOriginal.trim()) setSuggestions([]);
       return;
     }
-
-    if (searchTimeoutRef.current) {
-      window.clearTimeout(searchTimeoutRef.current);
-    }
-
+    if (searchTimeoutRef.current) window.clearTimeout(searchTimeoutRef.current);
     setIsSearchingSuggestions(true);
     searchTimeoutRef.current = window.setTimeout(async () => {
       try {
         const res = await processApis.getInspectionSuggestions(newItemOriginal);
-        if (res.success) {
-          setSuggestions(res.data);
-        }
+        if (res.success) setSuggestions(res.data);
       } finally {
         setIsSearchingSuggestions(false);
       }
     }, 400);
-
-    return () => {
-      if (searchTimeoutRef.current) window.clearTimeout(searchTimeoutRef.current);
-    };
+    return () => { if (searchTimeoutRef.current) window.clearTimeout(searchTimeoutRef.current); };
   }, [newItemOriginal, showSuggestions]);
 
   const resetForm = () => {
@@ -91,30 +75,22 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
     if (!data) return;
     const newStatus = !data.isCheckActive;
     const res = await processApis.updateCheckStatus(data.id, newStatus);
-    if (res.success) {
-      setData({ ...data, isCheckActive: newStatus });
-    }
+    if (res.success) setData({ ...data, isCheckActive: newStatus });
   };
 
   const handleStageChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (!data) return;
     const newStageId = e.target.value;
     const res = await processApis.updateTriggerStage(data.id, newStageId);
-    if (res.success) {
-      setData({ ...data, triggerStageId: newStageId });
-    }
-  };
-
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      addRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      originalInputRef.current?.focus();
-    }, 100);
+    if (res.success) setData({ ...data, triggerStageId: newStageId });
   };
 
   const onStartAdd = () => {
     setIsAdding(true);
-    scrollToBottom();
+    setTimeout(() => {
+      addRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      originalInputRef.current?.focus();
+    }, 100);
   };
 
   const handleAddItem = async () => {
@@ -124,10 +100,7 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
       displayName: newItemDisplay.trim() 
     });
     if (res.success) {
-      setData({
-        ...data,
-        inspectionItems: [...data.inspectionItems, res.data],
-      });
+      setData({ ...data, inspectionItems: [...data.inspectionItems, res.data] });
       resetForm();
       setIsAdding(false);
     }
@@ -137,18 +110,13 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
     if (!data) return;
     const res = await processApis.deleteInspectionItem(data.id, itemId);
     if (res.success) {
-      setData({
-        ...data,
-        inspectionItems: data.inspectionItems.filter(i => i.id !== itemId),
-      });
+      setData({ ...data, inspectionItems: data.inspectionItems.filter(i => i.id !== itemId) });
     }
   };
 
   const handleSelectSuggestion = (s: string) => {
     setNewItemOriginal(s);
-    if (!newItemDisplay.trim()) {
-      setNewItemDisplay(s);
-    }
+    if (!newItemDisplay.trim()) setNewItemDisplay(s);
     setShowSuggestions(false);
   };
 
@@ -274,22 +242,16 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
                 ))}
 
                 {/* Inline Add Row */}
-                <tr 
-                  ref={addRowRef}
-                  className={`transition-all duration-300 relative ${isAdding ? 'bg-blue-50/50' : 'hidden'}`}
-                >
+                <tr ref={addRowRef} className={`transition-all duration-300 relative ${isAdding ? 'bg-blue-50/50' : 'hidden'}`}>
                   <td className="px-6 py-4 overflow-visible">
                     <div className="relative" ref={suggestionRef}>
                       <input
                         ref={originalInputRef}
                         type="text"
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white pr-8 text-gray-900 placeholder-gray-400"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white pr-8 text-gray-900 placeholder-gray-400"
                         placeholder="输入关键字搜索..."
                         value={newItemOriginal}
-                        onChange={(e) => {
-                          setNewItemOriginal(e.target.value);
-                          setShowSuggestions(true);
-                        }}
+                        onChange={(e) => { setNewItemOriginal(e.target.value); setShowSuggestions(true); }}
                         onFocus={() => setShowSuggestions(true)}
                       />
                       {isSearchingSuggestions && (
@@ -297,17 +259,13 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
                           <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent animate-spin rounded-full"></div>
                         </div>
                       )}
-
                       {showSuggestions && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl z-[9999] max-h-60 overflow-y-auto ring-1 ring-black ring-opacity-10 border-t-0">
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl z-[9999] max-h-60 overflow-y-auto ring-1 ring-black ring-opacity-10">
                           {!newItemOriginal.trim() ? (
-                            <div className="px-4 py-4 text-xs text-gray-500 italic text-center">
-                              请输入检验项名称进行搜索...
-                            </div>
+                            <div className="px-4 py-4 text-xs text-gray-500 italic text-center">请输入检验项名称进行搜索...</div>
                           ) : isSearchingSuggestions ? (
                             <div className="px-4 py-4 text-xs text-gray-600 flex items-center justify-center gap-2">
-                               <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent animate-spin rounded-full"></div>
-                               正在从服务器查询数据...
+                               <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent animate-spin rounded-full"></div>正在查询...
                             </div>
                           ) : suggestions.length > 0 ? (
                             <div className="py-1">
@@ -315,20 +273,15 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
                                 <button
                                   key={idx}
                                   type="button"
-                                  className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-blue-600 hover:text-white transition-colors flex items-center justify-between group border-b border-gray-50 last:border-0"
+                                  className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-blue-600 hover:text-white transition-colors flex items-center justify-between group"
                                   onClick={() => handleSelectSuggestion(s)}
                                 >
                                   <span className="font-medium">{s}</span>
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
                                 </button>
                               ))}
                             </div>
                           ) : (
-                            <div className="px-4 py-4 text-xs text-gray-500 italic text-center">
-                              未查询到相关结果
-                            </div>
+                            <div className="px-4 py-4 text-xs text-gray-500 italic text-center">未查询到相关结果</div>
                           )}
                         </div>
                       )}
@@ -337,31 +290,18 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
                   <td className="px-6 py-4 overflow-visible">
                     <input
                       type="text"
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white text-gray-900 placeholder-gray-400"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900 placeholder-gray-400"
                       placeholder="设置显示别名..."
                       value={newItemDisplay}
                       onChange={(e) => setNewItemDisplay(e.target.value)}
                     />
                   </td>
                   <td className="px-6 py-4 text-right space-x-2">
-                    <button
-                      onClick={handleAddItem}
-                      disabled={!newItemOriginal.trim() || !newItemDisplay.trim()}
-                      className="text-blue-600 hover:text-blue-800 disabled:opacity-30 p-1"
-                      title="保存"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                      </svg>
+                    <button onClick={handleAddItem} disabled={!newItemOriginal.trim() || !newItemDisplay.trim()} className="text-blue-600 hover:text-blue-800 disabled:opacity-30 p-1" title="保存">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                     </button>
-                    <button
-                      onClick={() => { setIsAdding(false); resetForm(); }}
-                      className="text-gray-400 hover:text-gray-600 p-1"
-                      title="取消"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                    <button onClick={() => { setIsAdding(false); resetForm(); }} className="text-gray-400 hover:text-gray-600 p-1" title="取消">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </td>
                 </tr>
@@ -370,12 +310,7 @@ const ProcessDetail: React.FC<ProcessDetailProps> = ({ id }) => {
           </div>
           {!isAdding && (
             <div className="p-4 bg-gray-50/30 border-t border-gray-100 text-center">
-              <button 
-                onClick={onStartAdd}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
-              >
-                + 继续添加复核项
-              </button>
+              <button onClick={onStartAdd} className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors">+ 继续添加复核项</button>
             </div>
           )}
         </section>

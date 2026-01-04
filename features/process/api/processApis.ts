@@ -9,7 +9,7 @@ let mockProcesses: ProcessBaseInfo[] = Array.from({ length: 45 }).map((_, i) => 
   version: `V${(i % 3) + 1}.0`,
   description: `这是关于工艺 ${i + 1} 的详细描述信息。`,
   isCheckActive: i % 5 !== 0,
-  triggerStageId: undefined, // Initialized as undefined to test selection
+  triggerStageId: undefined,
   inspectionItems: [
     { id: `item-${i}-1`, originalName: '电压稳定性', displayName: '焊接电压偏差' },
   ],
@@ -60,26 +60,15 @@ export const processApis = {
     };
   },
 
-  /**
-   * 根据工艺 ID 获取该工艺支持的工序列表
-   */
   getProcessStages: async (processId: string): Promise<ApiResponse<ProcessStage[]>> => {
     await delay(150);
-    // 模拟根据工艺不同返回不同的工序集合
-    // 这里使用简单的取模算法来生成差异化的工序
     const idNum = parseInt(processId) || 0;
     const startIdx = idNum % MOCK_STAGES_POOL.length;
     const result: ProcessStage[] = [];
-    
-    // 每个工艺返回固定 4 个工序
     for (let i = 0; i < 4; i++) {
       result.push(MOCK_STAGES_POOL[(startIdx + i) % MOCK_STAGES_POOL.length]);
     }
-
-    return {
-      success: true,
-      data: result,
-    };
+    return { success: true, data: result };
   },
 
   updateTriggerStage: async (processId: string, stageId: string): Promise<ApiResponse<boolean>> => {
